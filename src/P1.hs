@@ -21,11 +21,17 @@ solve1 :: [Int] -> Int
 solve1 = length . filter (== 0) . map (`mod` 100) . scanl (+) 50
 
 solve2 :: [Int] -> Int
-solve2 = countZeros 50
+solve2 = passwordMethod2 50
 
-countZeros :: Integral t => t -> [t] -> t
-countZeros _ [] = 0
-countZeros start (delta:xs) =
-    let next = (start + delta)
-        zeros = abs (next `quot` 100) + if signum start == -(signum next) || next == 0 then 1 else 0
-    in  zeros + countZeros (next  `mod` 100) xs
+passwordMethod2 :: Int -> [Int] -> Int
+passwordMethod2 _ [] = 0
+passwordMethod2 start (delta:xs) =
+    let next = (start + delta) `mod` 100
+        zeros = zeroCount start delta
+    in  zeros + passwordMethod2 next xs
+
+zeroCount :: Int -> Int -> Int
+zeroCount start delta =
+    let start' = if delta < 0 && start > 0 then 100 - start else start
+        end = start' + abs delta
+    in  end `div` 100
