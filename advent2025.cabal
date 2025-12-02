@@ -28,6 +28,7 @@ library
       Dijkstra
       Lib
       P1
+      P2
       PX
   other-modules:
       Paths_advent2025
