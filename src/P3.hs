@@ -1,33 +1,31 @@
 module P3 (run1, run2, inputLocation) where
 
-import qualified Data.Map as M
-import qualified Data.Set as S
-
+run1 :: String -> Integer
 run1 = solve1 . parse
 
+run2 :: String -> Integer
 run2 = solve2 . parse
 
 inputLocation :: String
 inputLocation = "inputs/input3"
 
+parse :: String -> [String]
 parse = lines
 
-solve1 = sum . map joltage
+solve1 :: [String] -> Integer
+solve1 = solve 2
 
-joltage s =
-    let a = findFirstNumber s
-        b = findSecondNumber a s
-    in  read [a,b]
+solve2 :: [String] -> Integer
+solve2 = solve 12
 
-findFirstNumber :: String -> Char
-findFirstNumber = maximum . init
+solve :: Int -> [String] -> Integer
+solve count = sum . map (read . findNextBattery count)
 
-findSecondNumber :: Char -> String -> Char
-findSecondNumber x = maximum . tail . dropWhile (/= x)
-
-solve2 = sum . map (read . findNextBattery 12)
-
+findNextBattery :: Ord a => Int -> [a] -> [a]
 findNextBattery 0 _ = []
 findNextBattery x s =
-    let nextBattery = maximum $ take (length s - (x-1)) s
-    in  nextBattery : findNextBattery  (x-1) (tail $ dropWhile (/= nextBattery) s) 
+    let x'= x - 1
+        searchLength = length s - x'
+        nextBattery = maximum $ take searchLength s
+        remainingString = tail $ dropWhile (/= nextBattery) s
+    in  nextBattery : findNextBattery x' remainingString
