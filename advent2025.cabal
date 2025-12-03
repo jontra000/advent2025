@@ -29,6 +29,7 @@ library
       Lib
       P1
       P2
+      P3
       PX
   other-modules:
       Paths_advent2025
