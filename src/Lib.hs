@@ -1,6 +1,9 @@
-module Lib (memoize, textToCoordMap, Coord, addCoords, subtractCoords, mulCoord, Direction(..), move, rotateRight, rotateLeft, reverseDir) where
+{-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
+{-# HLINT ignore "Use bimap" #-}
+module Lib (memoize, textToCoordMap, Coord, addCoords, subtractCoords, mulCoord, Direction(..), move, rotateRight, rotateLeft, reverseDir, neighbours4, neighbours8) where
 
 import qualified Data.Map as M
+import qualified Data.Set as S
 
 type Coord = (Int, Int)
 data Direction = DirUp | DirDown | DirLeft | DirRight deriving (Eq, Ord, Show)
@@ -22,6 +25,12 @@ move DirUp (x,y) = (x, y-1)
 move DirDown (x,y) = (x,y+1)
 move DirLeft (x,y) = (x-1,y)
 move DirRight (x,y) = (x+1,y)
+
+neighbours4 :: Coord -> S.Set Coord
+neighbours4 (x,y) = S.fromList [(x, y-1), (x, y+1), (x-1,y), (x+1,y)]
+
+neighbours8 :: Coord -> S.Set Coord
+neighbours8 (x,y) = S.fromList . map (\(x', y') -> (x+x',y+y')) $ [(x', y') | x' <- [-1,0,1], y' <- [-1,0,1], (x',y') /= (0,0)]
 
 rotateRight :: Direction -> Direction
 rotateRight DirUp = DirRight

@@ -2,7 +2,7 @@ module P4 (run1, run2, inputLocation) where
 
 import qualified Data.Map as M
 import qualified Data.Set as S
-import Lib (textToCoordMap, Coord)
+import Lib (textToCoordMap, Coord, neighbours8)
 
 run1 = solve1 . parse
 run1 :: String -> Int
@@ -23,12 +23,7 @@ movableCoords :: S.Set Lib.Coord -> S.Set Lib.Coord
 movableCoords coords = S.filter (canMove coords) coords
 
 canMove :: S.Set Lib.Coord -> Lib.Coord -> Bool
-canMove allCoords x =
-    let neighbours = S.filter (isNeighbour x) allCoords
-    in  length neighbours < 5
-
-isNeighbour :: Lib.Coord -> Lib.Coord -> Bool
-isNeighbour (x1,y1) (x2,y2) = abs (x1 - x2) <= 1 && abs (y1 - y2) <= 1
+canMove allCoords = (<4) . length . S.intersection allCoords . Lib.neighbours8
 
 solve2 :: S.Set Coord -> Int
 solve2 coords=
