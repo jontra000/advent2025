@@ -1,51 +1,51 @@
 module P6 (run1, run2, inputLocation) where
 
 import Data.List ( transpose, dropWhileEnd )
-import Data.List.Split (splitOn)
+import Data.List.Split (splitWhen)
 import Data.Char (isSpace)
 
+type Operator = (Integer -> Integer -> Integer)
+data Problem = Problem Operator [Integer] -- operator, values
+type Input = [Problem]
+
 run1 :: String -> Integer
-run1 = solve1 . parse
+run1 = solve . parse parseValues1
 
 run2 :: String -> Integer
-run2 = solve2 . parse2
+run2 = solve . parse parseValues2
 
 inputLocation :: String
 inputLocation = "inputs/input6"
 
-parse :: String -> [[String]]
-parse = transpose . map parseLine . lines
+parse :: ([String] -> [[Integer]]) -> String -> Input
+parse parseValues = parseProblems parseValues . lines
 
-parseLine :: String -> [String]
-parseLine = words
+parseProblems :: ([String] -> [[Integer]]) -> [String] -> Input
+parseProblems _ [] = []
+parseProblems parseValues xs = zipWith Problem (parseOperators (last xs)) (parseValues (init xs))
 
-solve1 :: [[String]] -> Integer
-solve1 = sum . map solveProblem
+parseOperators :: String -> [Operator]
+parseOperators = map parseOperator . words
 
-solveProblem :: [String] -> Integer
-solveProblem [] = 0
-solveProblem xs =
-    let vars = map read $ init xs
-        operator = parseOperator $ last xs
-    in  foldl1 operator vars
+parseValues1 :: [String] -> [[Integer]]
+parseValues1 = transpose . map (map read . words)
+
+parseValues2 :: [String] -> [[Integer]]
+parseValues2 = map (map (read . trim)) . chunkProblems
+
+chunkProblems :: [String] -> [[String]]
+chunkProblems = splitWhen (null . trim) . transpose
+
+solve :: Input -> Integer
+solve = sum . map solveProblem
+
+solveProblem :: Problem -> Integer
+solveProblem (Problem operator xs) = foldl1 operator xs
 
 parseOperator :: Num a => String -> a -> a -> a
 parseOperator "+" a b = a + b
 parseOperator "*" a b = a * b
 parseOperator x _  _ = error $ "Bad operator: " ++ show x
 
-parse2 :: String -> [Integer]
-parse2 = map parseCephalopod . splitOn ["     "] . transpose . lines
-
 trim :: String -> String
 trim = dropWhileEnd isSpace . dropWhile isSpace
-
-parseCephalopod :: [String] -> Integer
-parseCephalopod [] = 0
-parseCephalopod xs =
-    let operator = parseOperator [last (head xs)]
-        vars = map read . filter (not  . null) . map (trim . init) $ xs
-    in  foldl1 operator vars
-
-solve2 :: [Integer] -> Integer
-solve2 = sum
