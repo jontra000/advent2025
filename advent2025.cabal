@@ -33,6 +33,7 @@ library
       P4
       P5
       P6
+      P7
       PX
   other-modules:
       Paths_advent2025
