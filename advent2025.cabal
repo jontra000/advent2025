@@ -26,10 +26,12 @@ source-repository head
 library
   exposed-modules:
       Dijkstra
+      DisjointSet
       Lib
       P1
       P10
       P11
+      P12
       P2
       P3
       P4
