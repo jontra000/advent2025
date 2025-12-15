@@ -1,11 +1,13 @@
 module P8 (run1, run2, inputLocation) where
 
-import qualified Data.Set as S
 import Data.List.Split (splitOn)
-import Data.List (sortOn, partition, sortBy, tails)
+import Data.List (sortOn, sortBy, tails)
 import Data.Ord (comparing, Down (Down))
+import qualified DisjointSet
 
 type Coord3 = (Int, Int, Int)
+type Connection = (Coord3, Coord3)
+type State = DisjointSet.DisjointSet Coord3
 
 run1 :: String -> Int
 run1 = solve1 . parse
@@ -27,50 +29,35 @@ parseCoord [x,y,z] = (read x, read y, read z)
 parseCoord x = error $ "Malformed coordinate: " ++ show x
 
 solve1 :: [Coord3] -> Int
-solve1 = product . takeSmallest 3 . groupPairs . takeClosest 1000 . pairAll
+solve1 coords = product . takeLargest 3 . connectPairs disjointSet . takeClosest 1000 $ pairAll coords
+    where disjointSet = DisjointSet.fromList coords
 
 pairAll :: [b] -> [(b, b)]
 pairAll xs = [ (x,y) | (x:ys) <- tails xs, y <- ys]
 
-takeClosest :: Int -> [(Coord3, Coord3)] -> [(Coord3, Coord3)]
+takeClosest :: Int -> [Connection] -> [Connection]
 takeClosest x = take x . sortOn distance
 
-distance :: (Coord3, Coord3) -> Double
+distance :: Connection -> Double
 distance ((x1,y1,z1), (x2,y2,z2)) = sqrt $ fromIntegral $ (x1 - x2) * (x1 - x2) + (y1 - y2) * (y1 - y2) + (z1 - z2) * (z1 - z2)
 
-groupPairs :: Ord a => [(a, a)] -> [S.Set a]
-groupPairs [] = []
-groupPairs (pair:xs) =
-    let (group', xs') = group (pairToSet pair) xs
-    in  group' : groupPairs xs'
+connectPairs :: State -> [Connection] -> State
+connectPairs = foldl (\djs' (x, y) -> DisjointSet.union x y djs')
 
-pairToSet :: Ord a => (a, a) -> S.Set a
-pairToSet (a, b) = S.fromList [a, b]
-
-group :: Ord a => S.Set a -> [(a, a)] -> (S.Set a, [(a, a)])
-group inGroup toCheck 
-    | null toInclude = (inGroup, toCheck)
-    | otherwise = group inGroup' toCheck'
-    where pairInGroup (a, b) = S.member a inGroup || S.member b inGroup
-          (toInclude, toCheck') = partition pairInGroup toCheck
-          newItemSets = map pairToSet toInclude
-          inGroup' = S.unions (inGroup : newItemSets)
-
-takeSmallest :: Foldable t => Int -> [t a] -> [Int]
-takeSmallest x = take x . sortBy (comparing Data.Ord.Down) . map length
+takeLargest :: Int -> State -> [Int]
+takeLargest x = take x . sortBy (comparing Data.Ord.Down) . DisjointSet.groupSizes
 
 solve2 :: [Coord3] -> Int
-solve2 coords = result2 . findLastConnection (S.fromList coords) [] . map pairToSet . sortOn distance $ pairAll coords
+solve2 coords = result2 . findLastConnection disjointSet . sortOn distance $ pairAll coords
+    where disjointSet = DisjointSet.fromList coords
 
-findLastConnection :: Ord a => S.Set a -> [S.Set a] -> [S.Set a] -> S.Set a
-findLastConnection ungrouped groups (connection:connections)
-    | null ungrouped && length groups' == 1 = connection
-    | otherwise = findLastConnection ungrouped' groups' connections
-    where ungrouped' = S.difference ungrouped connection
-          (remainingGroups, matchingGroups) = partition (null . S.intersection connection) groups
-          newGroup = S.unions (connection : matchingGroups)
-          groups' = newGroup : remainingGroups
-findLastConnection _ _ [] = error "Groups not connected"
+findLastConnection :: State -> [Connection] -> Connection
+findLastConnection _ [] = error "Groups don't connect"
+findLastConnection djs ((x,y):xs)
+    | groupCount == 1 = (x,y)
+    | otherwise = findLastConnection djs' xs
+    where djs' = DisjointSet.union x y djs
+          groupCount = length $ DisjointSet.groupSizes djs'
 
-result2 :: S.Set (Int, b, c) -> Int
-result2 = product . S.map (\(x, _, _) -> x)
+result2 :: Connection -> Int
+result2 ((x1, _, _), (x2, _, _)) = x1 * x2
