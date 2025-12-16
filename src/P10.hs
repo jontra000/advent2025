@@ -3,8 +3,8 @@ module P10 (run1, run2, inputLocation) where
 
 import qualified Data.Set as S
 import Data.List.Split (splitOn)
-import Data.List (transpose, find, sortOn)
-import qualified Data.Ord
+import Data.List (transpose, find, partition, maximumBy)
+import Data.Function (on)
 
 type Button = S.Set Int
 type LightPattern = S.Set Int
@@ -102,10 +102,18 @@ factorRow xs = makePositive $ map (`div` scale) xs
 
 solveReduced :: [[Int]] -> Maybe Int
 solveReduced m =
-    bruteForce buttons 0 Nothing initState target
+    bruteForce target fixedButtons' freeButtons 0 Nothing initState
     where target = map last m
           initState = map (const 0) target
-          buttons = sortOn (Data.Ord.Down . sum . map abs) (filter isNonZeroRow (init $ transpose m))
+          buttons = filter isNonZeroRow (init $ transpose m)
+          (fixedButtons, freeButtons) = partition isFixedButton buttons
+          fixedButtons' = compressFixedButtons fixedButtons
+
+isFixedButton :: [Int] -> Bool
+isFixedButton = (==1) . length . filter (/= 0)
+
+compressFixedButtons :: [[Int]] -> [Int]
+compressFixedButtons = map (maximumBy (compare `on` abs)) . transpose
 
 makeMatrix :: [S.Set Int] -> [Int] -> [[Int]]
 makeMatrix buttons = transpose . (map (makeVector maxVal) buttons ++) . (: [])
@@ -114,22 +122,36 @@ makeMatrix buttons = transpose . (map (makeVector maxVal) buttons ++) . (: [])
 makeVector :: Int -> S.Set Int -> [Int]
 makeVector maxVal button = map (\i -> if S.member i button then 1 else 0) [0..maxVal]
 
-bruteForce :: [[Int]] -> Int -> Maybe Int -> [Int] -> [Int] -> Maybe Int
-bruteForce buttons currentCount bestCount state target
-    | state == target = Just $ maybe currentCount (min currentCount) bestCount 
-    | maybe False (<= currentCount) bestCount = bestCount
-    | null buttons = bestCount
-    | otherwise = foldl bruteForce' bestCount pressesToTry'
-        where button = head buttons
-              pressesToTry' = pressesToTry button target state
-              bruteForce' bestCount' presses = bruteForce (tail buttons) (currentCount + presses) bestCount' (updateState state button presses) target
+bruteForce :: [Int] -> [Int] -> [[Int]] -> Int -> Maybe Int -> [Int] -> Maybe Int
+bruteForce target solvedButtons = go
+    where maxPresses = maximum (map abs target)
+          go freeButtons currentCount bestCount state
+            | maybe False (<= currentCount) bestCount = bestCount
+            | state == target = Just $ maybe currentCount (min currentCount) bestCount
+            | null freeButtons = applySolvedButtons target solvedButtons state bestCount currentCount
+            | otherwise = foldl go' bestCount pressesToTry'
+                where button = head freeButtons
+                      pressesToTry' = [0..maxPresses]
+                      go' bestCount' presses = go (tail freeButtons) (currentCount + presses) bestCount' (updateState state button presses)
 
-pressesToTry :: [Int] -> [Int] -> [Int] -> [Int]
-pressesToTry button target state =
-    filter (>=0) $ if isSingleValue then [exactSolution] else [0..maxPresses]
-    where maxPresses = sum (map abs target)
-          isSingleValue = length (filter (/=0) button) == 1
-          exactSolution = sum (zipWith (\b v -> if b == 0 then 0 else v `div` b) button $ zipWith (-) target state)
+applySolvedButtons :: [Int] -> [Int] -> [Int] -> Maybe Int -> Int -> Maybe Int
+applySolvedButtons target solvedButtons state bestCount currentCount = minMaybe bestCount (fmap (+currentCount) newCount)
+    where newCount = trySolve solvedButtons target state
+
+trySolve :: [Int] -> [Int] -> [Int] -> Maybe Int
+trySolve solvedButtons target state =
+    let delta = zipWith (-) target state
+        solution = filter ((/= 0) . fst) $ zip delta solvedButtons
+        solution' = map (uncurry div) solution
+    in  if any (<0) solution' || any ((/= 0) . uncurry mod) solution
+        then Nothing
+        else Just $ sum solution'
 
 updateState :: [Int] -> [Int] -> Int -> [Int]
 updateState state button presses = zipWith (+) state (map (* presses) button)
+
+minMaybe :: Ord a => Maybe a -> Maybe a -> Maybe a
+minMaybe Nothing Nothing = Nothing
+minMaybe (Just x) (Just y) = Just (min x y)
+minMaybe x Nothing = x
+minMaybe _ y = y
