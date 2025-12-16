@@ -1,72 +1,60 @@
 module P11 (run1, run2, inputLocation) where
 
 import qualified Data.Map as M
-import qualified Data.Set as S
-import Data.List (delete)
-import Data.Maybe (fromJust, fromMaybe)
+import Data.Maybe (fromMaybe)
 
+type Graph = M.Map String [String]
+type Cache = M.Map String Int
+
+run1 :: String -> Int
 run1 = solve1 . parse
 
+run2 :: String -> Int
 run2 = solve2 . parse
 
 inputLocation :: String
 inputLocation = "inputs/input11"
 
+parse :: String -> Graph
 parse = M.fromList . map parseLine . lines
 
+parseLine :: String -> (String, [String])
 parseLine =  parseConnection . words
 
 parseConnection :: [String] -> (String, [String])
 parseConnection (inStr:outStrs) = (init inStr, outStrs)
+parseConnection x = error $ "Malformed connection string: " ++ show x
 
-solve1 = countPaths "you"
+solve1 :: Graph -> Int
+solve1 graph = pathsFromTo graph "you" "out"
 
-countPaths "out" _ = 1
-countPaths x graph = sum (map (\x' -> countPaths x' graph) (graph M.! x ))
-
-countPaths2 [] "out" _ = 1
-countPaths2 _ "out" _ = 0
-countPaths2 toVisit x graph = sum (map (\x' -> countPaths2 toVisit' x' graph) (graph M.! x ))
-    where toVisit' = delete x toVisit
-
-countPaths3 current target graph
-    | current == target = 1
-    | otherwise = sum (map (\x' -> countPaths3 x' target graph) (graph M.! current ))
-
--- solve2 = countPaths4 "svr" S.empty
---     -- let fftPaths = countPaths3 "svr" "fft" graph 
---     --     dacPaths = countPaths3 "svr" "dac" graph 
---     --     fftdacPaths = countPaths3 "fft" "dac" graph 
---     --     dacfftPaths = countPaths3 "dac" "fft" graph 
---     --     fftoutPaths = countPaths3 "fft" "out" graph 
---     --     dacoutPaths = countPaths3 "dac" "out" graph 
---     -- in  fftPaths * fftdacPaths * dacoutPaths + dacPaths * dacfftPaths * fftoutPaths
-
--- countPaths4 "out" visited _ =
---     if S.member "fft" visited && S.member "dac" visited then 1 else 0
--- countPaths4 current visited graph
---     | S.member current visited = 0
---     | otherwise = sum (map (\x' -> countPaths4 x' visited' graph) (graph M.! current ))
---     where visited' = S.insert current visited
-
-
-solve2 graph = 
-    let fftPaths = pathsFromTo "svr" "fft" graph 
-        dacPaths = pathsFromTo "svr" "dac" graph 
-        fftdacPaths = pathsFromTo "fft" "dac" graph 
-        dacfftPaths = pathsFromTo "dac" "fft" graph 
-        fftoutPaths = pathsFromTo "fft" "out" graph 
-        dacoutPaths = pathsFromTo "dac" "out" graph 
+solve2 :: Graph -> Int
+solve2 graph =
+    let fftPaths = pathsFromTo graph "svr" "fft"
+        dacPaths = pathsFromTo graph "svr" "dac"
+        fftdacPaths = pathsFromTo graph "fft" "dac"
+        dacfftPaths = pathsFromTo graph "dac" "fft"
+        fftoutPaths = pathsFromTo graph "fft" "out"
+        dacoutPaths = pathsFromTo graph "dac" "out"
     in  fftPaths * fftdacPaths * dacoutPaths + dacPaths * dacfftPaths * fftoutPaths
 
-pathsFromTo from to graph = fromJust $  M.lookup from (countPaths4 from (M.singleton to 1) graph)
+pathsFromTo :: Graph -> String -> String -> Int
+pathsFromTo graph from = (M.! from) . (\cache -> countPaths graph cache from) . (`M.singleton` 1)
 
-countPaths4 :: String -> M.Map String Int -> M.Map String [String] -> M.Map String Int
-countPaths4 current visited graph =
+countPaths :: Graph -> Cache -> String -> Cache
+countPaths graph visited current =
     case M.lookup current visited of
         Just _ -> visited
-        Nothing ->
-            let toVisit = fromMaybe [] $ M.lookup current graph 
-                visited' = foldl (\state next -> countPaths4 next state graph) visited toVisit
-                paths = sum $ map (visited' M.!) toVisit
-            in  M.insert current paths visited'
+        Nothing -> countPaths' current visited graph
+
+countPaths' :: String -> Cache -> Graph -> Cache
+countPaths' current visited graph = M.insert current paths visited'
+    where toVisit = connections current graph
+          visited' = foldl (countPaths graph) visited toVisit
+          paths = sumPaths visited' toVisit
+
+connections :: String -> Graph -> [String]
+connections current = fromMaybe [] . M.lookup current
+
+sumPaths :: Cache -> [String] -> Int
+sumPaths cache = sum . map (cache M.!)
